@@ -5,6 +5,7 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Command
 from aiogram.dispatcher.filters.state import State, StatesGroup
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from config import TOKEN_API
 
 
@@ -16,6 +17,10 @@ bot = Bot(TOKEN_API)
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 
+repositories_button = KeyboardButton('Repositories')
+
+repositories_markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+repositories_markup.add(repositories_button)
 
 
 @dp.message_handler(Command('start'))
@@ -73,6 +78,12 @@ async def process_username(message: types.Message, state: FSMContext):
 
     if response.status_code == 200:
         user_data = response.json()
+
+        repositories_list_button = KeyboardButton('List Repositories')
+
+
+        repositories_list_markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+        repositories_list_markup.add(repositories_list_button)
         
         output_message = f"GitHub user information for {username}:\n\n" \
                         f"Name: {user_data['name']}\n" \
@@ -85,9 +96,40 @@ async def process_username(message: types.Message, state: FSMContext):
                         f"Twitter: {user_data['twitter_username']}\n"\
                         f"Number of public repos: {user_data['public_repos']}\n"\
                         f"created account at: {user_data['created_at']}\n"
-        await message.answer(output_message)
+        await message.answer(output_message, reply_markup=repositories_list_markup)
+        #update data
+        await state.update_data(user_data=user_data) # Store user_data in the state context
     else:
         await message.answer(f"User {username} not found. Please try again.")
+    await state.finish()
+
+
+
+@dp.message_handler(lambda message: message.text == 'List Repositories', state='*')
+async def process_list_repositories(message: types.Message, state: FSMContext):
+    # Get the user's data from the FSM context
+    data = await state.get_data()
+    user_data = data.get('user_data')  # get user_data from the context, return None if it doesn't exist
+    print(user_data)
+    if user_data:
+        username = user_data['login']
+        repos_url = user_data['repos_url']
+
+        # Send a message with the list of repositories
+        response = requests.get(repos_url)
+        if response.status_code == 200:
+            repositories_data = response.json()
+            repositories_list = []
+            for repository_data in repositories_data:
+                repositories_list.append(repository_data['full_name'])
+
+            await message.answer(f"Repositories for {username}:\n\n" + "\n".join(repositories_list))
+        else:
+            await message.answer(f"Error retrieving repositories for {username}. Please try again.")
+    else:
+        await message.answer("User data not found. Please start the conversation again.")
+
+    # End the conversation
     await state.finish()
 
 
