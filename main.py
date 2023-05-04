@@ -38,7 +38,7 @@ async def search_command_handler(message: types.Message):
     await message.answer("How do you want to search for the GitHub user?", reply_markup=keyboard)
 
 
-
+#id 
 @dp.message_handler(lambda message: message.text == 'Search by ID')
 async def search_by_id(message: types.Message):
     await message.answer("Enter the ID of the GitHub user you want to search for:")
@@ -52,6 +52,10 @@ async def process_id(message: types.Message, state: FSMContext):
     if response.status_code == 200:
         user_data = response.json()
         
+        repositories_list_button = KeyboardButton('List Repositories')
+        repositories_list_markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+        repositories_list_markup.add(repositories_list_button)
+
         output_message = f"GitHub user information for {user_id}:\n\n" \
                         f"Name: {user_data['name']}\n" \
                         f"Avatar: {user_data['avatar_url']}\n" \
@@ -63,11 +67,17 @@ async def process_id(message: types.Message, state: FSMContext):
                         f"Twitter: {user_data['twitter_username']}\n"\
                         f"Number of public repos: {user_data['public_repos']}\n"\
                         f"created account at: {user_data['created_at']}\n"
-        await message.answer(output_message)
+        await message.answer(output_message, reply_markup=repositories_list_markup)
+
+        await state.update_data(user_data=user_data)
+
+        
+        await SearchUser.waiting_for_action.set()
     else:
         await message.answer(f"User with ID {user_id} not found. Please try again.")
-    await state.finish()
+        await state.finish()
 
+#username
 
 @dp.message_handler(lambda message: message.text == 'Search by username')
 async def search_by_username(message: types.Message):
