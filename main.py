@@ -12,6 +12,7 @@ from config import TOKEN_API
 class SearchUser(StatesGroup):
     waiting_for_username = State()
     waiting_for_id = State()
+    waiting_for_action = State()
 
 bot = Bot(TOKEN_API)
 storage = MemoryStorage()
@@ -36,10 +37,7 @@ async def search_command_handler(message: types.Message):
 
     await message.answer("How do you want to search for the GitHub user?", reply_markup=keyboard)
 
-@dp.message_handler(lambda message: message.text == 'Search by username')
-async def search_by_username(message: types.Message):
-    await message.answer("Enter the username of the GitHub user you want to search for:")
-    await SearchUser.waiting_for_username.set()
+
 
 @dp.message_handler(lambda message: message.text == 'Search by ID')
 async def search_by_id(message: types.Message):
@@ -71,6 +69,11 @@ async def process_id(message: types.Message, state: FSMContext):
     await state.finish()
 
 
+@dp.message_handler(lambda message: message.text == 'Search by username')
+async def search_by_username(message: types.Message):
+    await message.answer("Enter the username of the GitHub user you want to search for:")
+    await SearchUser.waiting_for_username.set()
+
 @dp.message_handler(state=SearchUser.waiting_for_username)
 async def process_username(message: types.Message, state: FSMContext):
     username = message.text
@@ -80,8 +83,6 @@ async def process_username(message: types.Message, state: FSMContext):
         user_data = response.json()
 
         repositories_list_button = KeyboardButton('List Repositories')
-
-
         repositories_list_markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
         repositories_list_markup.add(repositories_list_button)
         
@@ -97,25 +98,28 @@ async def process_username(message: types.Message, state: FSMContext):
                         f"Number of public repos: {user_data['public_repos']}\n"\
                         f"created account at: {user_data['created_at']}\n"
         await message.answer(output_message, reply_markup=repositories_list_markup)
-        #update data
-        await state.update_data(user_data=user_data) # Store user_data in the state context
+
+        
+        await state.update_data(user_data=user_data)
+
+        
+        await SearchUser.waiting_for_action.set()
+
     else:
         await message.answer(f"User {username} not found. Please try again.")
-    await state.finish()
+        await state.finish()
+
 
 
 
 @dp.message_handler(lambda message: message.text == 'List Repositories', state='*')
 async def process_list_repositories(message: types.Message, state: FSMContext):
-    # Get the user's data from the FSM context
     data = await state.get_data()
-    user_data = data.get('user_data')  # get user_data from the context, return None if it doesn't exist
-    print(user_data)
-    if user_data:
+    user_data = data.get('user_data')  
+    if user_data:   
         username = user_data['login']
         repos_url = user_data['repos_url']
 
-        # Send a message with the list of repositories
         response = requests.get(repos_url)
         if response.status_code == 200:
             repositories_data = response.json()
@@ -129,7 +133,6 @@ async def process_list_repositories(message: types.Message, state: FSMContext):
     else:
         await message.answer("User data not found. Please start the conversation again.")
 
-    # End the conversation
     await state.finish()
 
 
