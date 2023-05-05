@@ -149,4 +149,5 @@ async def process_list_repositories(message: types.Message, state: FSMContext):
 if __name__ == '__main__':
     print("alright")
     executor.start_polling(dp)
-    
+
+#https://docs.github.com/ru/rest/orgs/orgs?apiVersion=2022-11-28#list-organizations-for-the-authenticated-user
