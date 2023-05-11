@@ -136,8 +136,9 @@ async def process_list_repositories(message: types.Message, state: FSMContext):
             repositories_list = []
             for repository_data in repositories_data:
                 repositories_list.append(repository_data['full_name'])
-
+            
             await message.answer(f"Repositories for {username}:\n\n" + "\n".join(repositories_list))
+            print(repositories_list)
         else:
             await message.answer(f"Error retrieving repositories for {username}. Please try again.")
     else:
